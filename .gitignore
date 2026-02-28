@@ -1,0 +1,21 @@
+# Credentials — NEVER commit these
+.env
+firebase_key.json
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+
+# dlib wheel (too large for GitHub)
+*.whl
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node (shouldn't be in backend but just in case)
+node_modules/
