@@ -2,7 +2,7 @@ services:
   - type: web
     name: bioguard-ai-backend
     runtime: python
-    buildCommand: pip install cmake && pip install dlib==19.22.99 && pip install -r requirements.txt
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
     startCommand: python app.py
     envVars:
       - key: EMAIL_ADDRESS
