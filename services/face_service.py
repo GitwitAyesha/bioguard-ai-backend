@@ -1,36 +1,48 @@
-import face_recognition
-import cv2
 import numpy as np
 import base64
-import io
+import tempfile
+import os
+from io import BytesIO
+from PIL import Image
+import traceback
+
 
 def capture_face_from_image(image_bytes):
     """
-    Takes image bytes (from upload) and returns face encoding
+    Takes image bytes and returns face embedding using DeepFace.
+    Returns (embedding, None) on success or (None, error_message) on failure.
     """
-    nparr = np.frombuffer(image_bytes, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    face_locations = face_recognition.face_locations(img)
-    if len(face_locations) != 1:
-        return None, "No face or multiple faces detected"
-    face_encoding = face_recognition.face_encodings(img, known_face_locations=face_locations)[0]
-    return face_encoding, None
+    tmp_path = None
+    try:
+        from deepface import DeepFace
+        image = Image.open(BytesIO(image_bytes)).convert("RGB")
+        tmp = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
+        image.save(tmp.name, format="JPEG")
+        tmp.close()
+        tmp_path = tmp.name
 
-def encode_face_to_str(face_encoding):
-    """
-    Converts numpy array to base64 string for storing in Firebase
-    """
-    return base64.b64encode(face_encoding.tobytes()).decode('utf-8')
+        result = DeepFace.represent(
+            img_path          = tmp_path,
+            model_name        = "Facenet",
+            enforce_detection = False,
+        )
+        if not result or len(result) == 0:
+            return None, "No face detected"
+        return np.array(result[0]["embedding"]), None
+    except Exception:
+        traceback.print_exc()
+        return None, "Face processing failed"
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.remove(tmp_path)
 
-def decode_face_from_str(face_str):
-    """
-    Converts base64 string back to numpy array
-    """
-    face_bytes = base64.b64decode(face_str)
-    return np.frombuffer(face_bytes, dtype=np.float64)
 
-def compare_faces(known_encoding, unknown_encoding, tolerance=0.5):
+def compare_faces(known_embedding, unknown_embedding, threshold=10.0):
     """
-    Compares two face encodings, returns True if match
+    Compares two embeddings using Euclidean distance.
+    Returns True if same person.
     """
-    return face_recognition.compare_faces([known_encoding], unknown_encoding, tolerance=tolerance)[0]
+    a = np.array(known_embedding)
+    b = np.array(unknown_embedding)
+    distance = float(np.linalg.norm(a - b))
+    return distance < threshold
