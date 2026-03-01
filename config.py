@@ -23,7 +23,7 @@ def initialize_firebase():
     firebase_admin.initialize_app(cred, {
         "databaseURL": os.environ.get(
             "FIREBASE_DB_URL",
-            "https://bioguard-ai-949a4-default-rtdb.firebaseio.com/"
+            "https://bioguard-ai-f78db-default-rtdb.firebaseio.com/"
         )
     })
 
