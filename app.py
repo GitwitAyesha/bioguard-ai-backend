@@ -12,14 +12,25 @@ from services.auth_service import create_default_admin
 
 app = Flask(__name__)
 
-# Allow both local dev and deployed frontend
+# Allow localhost + any Vercel deployment of this project
 ALLOWED_ORIGINS = [
-    "http://localhost:5173",                      # local dev
-    "http://localhost:3000",                      # local dev alternative
-    os.environ.get("FRONTEND_URL", ""),           # deployed Vercel frontend
+    "http://localhost:5173",
+    "http://localhost:3000",
+    os.environ.get("FRONTEND_URL", ""),
 ]
+
+def is_allowed_origin(origin):
+    if not origin:
+        return False
+    if origin in ALLOWED_ORIGINS:
+        return True
+    # Allow ANY vercel deployment URL for this project
+    if "bioguard-ai-frontend" in origin and "vercel.app" in origin:
+        return True
+    return False
+
 CORS(app,
-     origins=[o for o in ALLOWED_ORIGINS if o],
+     origins=is_allowed_origin,
      supports_credentials=True,
      allow_headers=["Content-Type", "Authorization"],
      methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
@@ -30,26 +41,23 @@ app.register_blueprint(admin_bp, url_prefix="/api/admin")
 app.register_blueprint(face_bp,  url_prefix="/api/face")
 
 
-# ── Health check / keep-alive ping ──────────────────────────────────────────
+# ── Health check ─────────────────────────────────────────────────────────────
 @app.route("/ping", methods=["GET"])
 def ping():
     return jsonify({"status": "alive"}), 200
 
 
-# ── Reset admin (first-time setup) ──────────────────────────────────────────
+# ── Reset admin ───────────────────────────────────────────────────────────────
 @app.route("/api/reset-admin", methods=["GET"])
 def reset_admin():
     from config import get_db
     from utils.security import hash_password
     import uuid
-
     db = get_db()
     users = db.reference("users").get() or {}
-
     for uid, user in users.items():
         if user.get("role") == "admin":
             db.reference("users").child(uid).delete()
-
     admin_id = str(uuid.uuid4())
     db.reference("users").child(admin_id).set({
         "id":              admin_id,
@@ -62,7 +70,7 @@ def reset_admin():
     return jsonify({"message": "Admin reset successful. Email: admin@admin.com, Password: admin123"}), 200
 
 
-# ── Debug routes ─────────────────────────────────────────────────────────────
+# ── Debug routes ──────────────────────────────────────────────────────────────
 @app.route("/api/debug/user/<email>", methods=["GET"])
 def debug_user(email):
     from config import get_db
@@ -93,5 +101,5 @@ def debug_reset(email):
 
 if __name__ == "__main__":
     create_default_admin()
-    port = int(os.environ.get("PORT", 5001))  # Render sets PORT automatically
+    port = int(os.environ.get("PORT", 5001))
     app.run(host="0.0.0.0", port=port, debug=False)
