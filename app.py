@@ -14,17 +14,23 @@ app = Flask(__name__)
 
 # Allow both local dev and deployed frontend
 ALLOWED_ORIGINS = [
-    "http://localhost:5173",                          # local dev
-    os.environ.get("FRONTEND_URL", ""),               # deployed frontend URL
+    "http://localhost:5173",                      # local dev
+    "http://localhost:3000",                      # local dev alternative
+    os.environ.get("FRONTEND_URL", ""),           # deployed Vercel frontend
 ]
-CORS(app, origins=[o for o in ALLOWED_ORIGINS if o])
+CORS(app,
+     origins=[o for o in ALLOWED_ORIGINS if o],
+     supports_credentials=True,
+     allow_headers=["Content-Type", "Authorization"],
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+)
 
-app.register_blueprint(auth_bp,   url_prefix="/api/auth")
-app.register_blueprint(admin_bp,  url_prefix="/api/admin")
-app.register_blueprint(face_bp,   url_prefix="/api/face")
+app.register_blueprint(auth_bp,  url_prefix="/api/auth")
+app.register_blueprint(admin_bp, url_prefix="/api/admin")
+app.register_blueprint(face_bp,  url_prefix="/api/face")
 
 
-# ── Health check / keep-alive ping ─────────────────────────────────────────
+# ── Health check / keep-alive ping ──────────────────────────────────────────
 @app.route("/ping", methods=["GET"])
 def ping():
     return jsonify({"status": "alive"}), 200
@@ -56,7 +62,7 @@ def reset_admin():
     return jsonify({"message": "Admin reset successful. Email: admin@admin.com, Password: admin123"}), 200
 
 
-# ── Debug routes (remove before going live if desired) ──────────────────────
+# ── Debug routes ─────────────────────────────────────────────────────────────
 @app.route("/api/debug/user/<email>", methods=["GET"])
 def debug_user(email):
     from config import get_db
@@ -87,5 +93,5 @@ def debug_reset(email):
 
 if __name__ == "__main__":
     create_default_admin()
-    port = int(os.environ.get("PORT", 8000))   # Koyeb/Railway set PORT automatically
+    port = int(os.environ.get("PORT", 5001))  # Render sets PORT automatically
     app.run(host="0.0.0.0", port=port, debug=False)
