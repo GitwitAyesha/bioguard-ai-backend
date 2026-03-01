@@ -1,6 +1,5 @@
 import os
-from flask import Flask, jsonify
-from flask_cors import CORS
+from flask import Flask, jsonify, request
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -12,29 +11,46 @@ from services.auth_service import create_default_admin
 
 app = Flask(__name__)
 
-# Allow localhost + any Vercel deployment of this project
-ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://localhost:3000",
-    os.environ.get("FRONTEND_URL", ""),
-]
 
 def is_allowed_origin(origin):
     if not origin:
         return False
-    if origin in ALLOWED_ORIGINS:
+    allowed = [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        os.environ.get("FRONTEND_URL", ""),
+    ]
+    if origin in allowed:
         return True
-    # Allow ANY vercel deployment URL for this project
-    if "bioguard-ai-frontend" in origin and "vercel.app" in origin:
+    if "vercel.app" in origin:
         return True
     return False
 
-CORS(app,
-     origins=is_allowed_origin,
-     supports_credentials=True,
-     allow_headers=["Content-Type", "Authorization"],
-     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-)
+
+@app.after_request
+def apply_cors(response):
+    origin = request.headers.get("Origin", "")
+    if is_allowed_origin(origin):
+        response.headers["Access-Control-Allow-Origin"]  = origin
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+    return response
+
+
+@app.before_request
+def handle_preflight():
+    if request.method == "OPTIONS":
+        origin = request.headers.get("Origin", "")
+        if is_allowed_origin(origin):
+            res = app.make_default_options_response()
+            res.headers["Access-Control-Allow-Origin"]      = origin
+            res.headers["Access-Control-Allow-Headers"]     = "Content-Type, Authorization"
+            res.headers["Access-Control-Allow-Methods"]     = "GET, POST, PUT, DELETE, OPTIONS"
+            res.headers["Access-Control-Allow-Credentials"] = "true"
+            res.headers["Access-Control-Max-Age"]           = "3600"
+            return res
+
 
 app.register_blueprint(auth_bp,  url_prefix="/api/auth")
 app.register_blueprint(admin_bp, url_prefix="/api/admin")
